@@ -1,8 +1,10 @@
 package org.zotero.android.screens.reader
 
 import android.content.res.Resources
+import android.os.Build
 import android.util.TypedValue
 import android.view.MotionEvent
+import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -15,6 +17,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -87,6 +90,25 @@ internal fun ReaderScreen(
             insetsController.show(systemBars)
         } else {
             insetsController.hide(systemBars)
+        }
+
+        // Let the reader draw content into the display cutout (notch / hole-punch)
+        // strip instead of leaving it letterboxed. Restored when leaving the reader.
+        DisposableEffect(Unit) {
+            val previousCutoutMode = window.attributes.layoutInDisplayCutoutMode
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+            onDispose {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.attributes = window.attributes.apply {
+                        layoutInDisplayCutoutMode = previousCutoutMode
+                    }
+                }
+            }
         }
 
         val annotationMaxSideSize = annotationMaxSideSize()
@@ -174,7 +196,9 @@ internal fun ReaderScreen(
                     }
                     false
                 },
-            shouldIncludeTopBarAndNavBarPaddings = viewState.isPdfOrHtml(),
+            // PDF/HTML reader draws full-bleed (content fills cutout + nav-bar areas);
+            // the top bar floats over it. EPUB keeps its own insets in ReaderOverlayMode.
+            shouldIncludeTopBarAndNavBarPaddings = false,
             topBar = {
                 AnimatedContent(
                     targetState = viewState.isTopBarVisible,

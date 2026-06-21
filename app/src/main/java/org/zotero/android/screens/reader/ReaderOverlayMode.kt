@@ -29,21 +29,19 @@ internal fun ReaderOverlayMode(
     val isPdfOrHtml = viewState.isPdfOrHtml()
     var boxModifier = Modifier.fillMaxSize()
 
-    val density = LocalDensity.current
-    val systemBarsInsets = WindowInsets.systemBarsIgnoringVisibility
-    val insetBottom = with(density) { systemBarsInsets.getBottom(this).toDp() }
-    boxModifier = boxModifier
-        .padding(
-            bottom = insetBottom
-        )
-
+    // PDF/HTML reader is full-bleed: no system-bar insets, so content fills the
+    // display-cutout strip and the navigation-bar area. EPUB keeps its insets.
     if (!isPdfOrHtml) {
+        val density = LocalDensity.current
+        val systemBarsInsets = WindowInsets.systemBarsIgnoringVisibility
+        val insetBottom = with(density) { systemBarsInsets.getBottom(this).toDp() }
         val statusBarTop = with(density) {
             systemBarsInsets.getTop(this).toDp()
         } + TopAppBarDefaults.TopAppBarExpandedHeight
         boxModifier = boxModifier
             .padding(
                 top = statusBarTop,
+                bottom = insetBottom,
             )
     }
     Box(
