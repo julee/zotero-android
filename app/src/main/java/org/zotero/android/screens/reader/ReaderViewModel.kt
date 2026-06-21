@@ -402,6 +402,21 @@ class ReaderViewModel @Inject constructor(
         readerWebCallChainExecutor.start(webView = webView, file = this.readerFile)
     }
 
+    // Crop reading mode (PDF only) UI triggers.
+    fun onEnterCropEditClicked() {
+        if (viewState.fileType != ReaderFileType.PDF) {
+            return
+        }
+        readerWebCallChainExecutor.enterCropEdit()
+    }
+
+    fun onCropModeSelected(manual: Boolean) {
+        if (viewState.fileType != ReaderFileType.PDF) {
+            return
+        }
+        readerWebCallChainExecutor.setCropMode(if (manual) "manual" else "auto")
+    }
+
     private fun initAnnotationManager() {
         annotationBitmapManager.init(viewModelScope)
         val annotationsBitmapCache = annotationBitmapManager.generateEmptySnapshot().toPersistentMap()
@@ -678,16 +693,30 @@ class ReaderViewModel @Inject constructor(
 
 
     private suspend fun saveAnnotationFromSelection(type: AnnotationType) {
-        //TODO support will be added later
+        val textParams =
+            this.selectedTextParams?.get("annotation")?.asJsonObject ?: return
+        val params = params(textParams, type) ?: return
+        this.selectedTextParams = null
+
         if (viewState.fileType == ReaderFileType.PDF) {
+            val annotations = parsePdfJson(
+                pdfAnnotations = JsonArray().apply { add(params) },
+                author = this.username,
+                isAuthor = true
+            )
+            if (annotations.isEmpty()) {
+                return
+            }
+            readerWebCallChainExecutor.updateView(
+                modifications = JsonArray(),
+                insertions = JsonArray().apply { add(params) },
+                deletions = JsonArray()
+            )
+            createPdfDatabaseAnnotations(annotations = annotations)
             return
         }
 
-      val textParams =
-            this.selectedTextParams?.get("annotation")?.asJsonObject ?: return
-        val params = params( textParams, type) ?: return
         val annotations = parseHtmlEpubJson(JsonArray().apply { add(params) }, author =  this.username, isAuthor = true)
-        this.selectedTextParams = null
         for (annotation in annotations) {
             this.annotations[annotation.key] = annotation
         }
@@ -1354,6 +1383,12 @@ class ReaderViewModel @Inject constructor(
                     selectedAnnotationKey = viewState.selectedAnnotationKey
                 )
                 readerWebCallChainExecutor.loadDocument(documentData)
+                if (viewState.fileType == ReaderFileType.PDF) {
+                    val savedCrop = defaults.getReaderCropConfig(this@ReaderViewModel.key)
+                    if (savedCrop != null) {
+                        readerWebCallChainExecutor.setCropConfig(savedCrop)
+                    }
+                }
                 restoreWebViewState()
             } else {
                 var shouldIgnoreUpdate = false
@@ -1510,6 +1545,9 @@ class ReaderViewModel @Inject constructor(
             }
             ReaderWebData.toggleInterfaceVisibility -> {
                 decideTopBarAndBottomBarVisibility()
+            }
+            is ReaderWebData.onSaveCropConfig -> {
+                defaults.setReaderCropConfig(this.key, successValue.config.toString())
             }
 
             else -> {

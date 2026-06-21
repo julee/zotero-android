@@ -243,6 +243,18 @@ class ReaderWebCallChainExecutor @Inject constructor(
                             )
                         }
 
+                        "onSaveCropConfig" -> {
+                            val params = data["params"].asJsonObject
+                            val config = params["config"]?.asJsonObject
+                            if (config != null) {
+                                observable.emitAsync(
+                                    Result.Success(
+                                        ReaderWebData.onSaveCropConfig(config)
+                                    )
+                                )
+                            }
+                        }
+
                     }
                 }
 
@@ -440,6 +452,18 @@ class ReaderWebCallChainExecutor @Inject constructor(
                 cont.resume(Unit)
             }
         }
+    }
+
+    fun setCropMode(mode: String) {
+        readerWebViewHandler.evaluateJavascript("window._view.setCropMode('$mode');") {}
+    }
+
+    fun enterCropEdit() {
+        readerWebViewHandler.evaluateJavascript("window._view.enterCropEdit();") {}
+    }
+
+    fun setCropConfig(configJson: String) {
+        readerWebViewHandler.evaluateJavascript("window._view.setCropConfig($configJson);") {}
     }
 
 }

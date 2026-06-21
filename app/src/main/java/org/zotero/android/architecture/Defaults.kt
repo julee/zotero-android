@@ -94,6 +94,15 @@ open class Defaults @Inject constructor(
         return sharedPreferences.getString(highlightColorHex, AnnotationsConfig.defaultActiveColor )!!
     }
 
+    // Per-file PDF crop config (odd/even normalized rects + mode), stored as JSON.
+    fun setReaderCropConfig(attachmentKey: String, json: String) {
+        sharedPreferences.edit { putString("readerCropConfig_$attachmentKey", json) }
+    }
+
+    fun getReaderCropConfig(attachmentKey: String): String? {
+        return sharedPreferences.getString("readerCropConfig_$attachmentKey", null)
+    }
+
     fun setNoteColorHex(str: String) {
         sharedPreferences.edit { putString(noteColorHex, str) }
     }

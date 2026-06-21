@@ -272,7 +272,9 @@ internal class AllItemsViewModel @Inject constructor(
                     )
                     when (contentType) {
                         "application/pdf" -> {
-                            showPdf(
+                            // Route B: open PDFs with the new web-based Zotero Reader instead of PSPDFKit.
+                            Timber.i("AllItemsViewModel: show PDF via Reader ${attachment.key}")
+                            showReader(
                                 file = file,
                                 key = attachment.key,
                                 parentKey = parentKey,

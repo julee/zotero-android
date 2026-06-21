@@ -3,11 +3,18 @@ package org.zotero.android.screens.reader.topbar
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import org.zotero.android.screens.reader.data.ReaderFileType
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults.rememberTooltipPositionProvider
@@ -173,6 +180,45 @@ internal fun ReaderTopBar(
                         },
                         isSelected = showPdfSearch
                     )
+                }
+            }
+
+            if (viewState.fileType == ReaderFileType.PDF) {
+                var cropMenuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { cropMenuExpanded = true }) {
+                        Icon(
+                            painter = painterResource(Drawables.crop_24px),
+                            contentDescription = "Crop",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = cropMenuExpanded,
+                        onDismissRequest = { cropMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("编辑裁切区域") },
+                            onClick = {
+                                cropMenuExpanded = false
+                                viewModel.onEnterCropEditClicked()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("手动裁切") },
+                            onClick = {
+                                cropMenuExpanded = false
+                                viewModel.onCropModeSelected(manual = true)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("自动裁切") },
+                            onClick = {
+                                cropMenuExpanded = false
+                                viewModel.onCropModeSelected(manual = false)
+                            }
+                        )
+                    }
                 }
             }
 
