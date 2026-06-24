@@ -34,6 +34,8 @@ internal fun ReaderSidebar(
     viewModel: ReaderViewModel,
     viewState: ReaderViewState,
     annotationsLazyListState: LazyListState,
+    outlineLazyListState: LazyListState,
+    thumbnailsLazyListState: LazyListState,
     annotationMaxSideSize: Int,
 ) {
     Column(Modifier) {
@@ -82,6 +84,7 @@ internal fun ReaderSidebar(
         when (selectedOption) {
             ReaderSliderOptions.Thumbnails -> {
                 ReaderThumbnailsSidebar(
+                    thumbnailsLazyListState = thumbnailsLazyListState,
                     annotationMaxSideSize = annotationMaxSideSize,
                 )
             }
@@ -99,6 +102,7 @@ internal fun ReaderSidebar(
                 ReaderOutlineSidebar(
                     viewModel = viewModel,
                     viewState = viewState,
+                    outlineLazyListState = outlineLazyListState,
                 )
             }
         }

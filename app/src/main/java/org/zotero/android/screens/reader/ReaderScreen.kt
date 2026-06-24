@@ -115,6 +115,10 @@ internal fun ReaderScreen(
 
         val focusManager = LocalFocusManager.current
         val annotationsLazyListState = rememberLazyListState()
+        // Hoisted so the sidebar's outline/thumbnail scroll positions survive the
+        // sidebar being closed and reopened (it's recreated, not just hidden).
+        val outlineLazyListState = rememberLazyListState()
+        val thumbnailsLazyListState = rememberLazyListState()
         val layoutType = CustomLayoutSize.calculateLayoutType()
         LaunchedEffect(key1 = viewEffect) {
             when (val consumedEffect = viewEffect?.consume()) {
@@ -239,6 +243,8 @@ internal fun ReaderScreen(
                             viewModel = viewModel,
                             viewState = viewState,
                             annotationsLazyListState = annotationsLazyListState,
+                            outlineLazyListState = outlineLazyListState,
+                            thumbnailsLazyListState = thumbnailsLazyListState,
                             annotationMaxSideSize = annotationMaxSideSize
                         )
                     } else {
@@ -246,6 +252,8 @@ internal fun ReaderScreen(
                             viewState = viewState,
                             viewModel = viewModel,
                             annotationsLazyListState = annotationsLazyListState,
+                            outlineLazyListState = outlineLazyListState,
+                            thumbnailsLazyListState = thumbnailsLazyListState,
                             layoutType = layoutType,
                             annotationMaxSideSize = annotationMaxSideSize
                         )
@@ -257,6 +265,8 @@ internal fun ReaderScreen(
                         viewState = viewState,
                         viewModel = viewModel,
                         annotationsLazyListState = annotationsLazyListState,
+                        outlineLazyListState = outlineLazyListState,
+                        thumbnailsLazyListState = thumbnailsLazyListState,
                         layoutType = layoutType,
                         annotationMaxSideSize = annotationMaxSideSize
                     )

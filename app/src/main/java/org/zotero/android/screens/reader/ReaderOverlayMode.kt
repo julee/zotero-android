@@ -23,6 +23,8 @@ internal fun ReaderOverlayMode(
     viewModel: ReaderViewModel,
     viewState: ReaderViewState,
     annotationsLazyListState: LazyListState,
+    outlineLazyListState: LazyListState,
+    thumbnailsLazyListState: LazyListState,
     layoutType: CustomLayoutSize.LayoutType,
     annotationMaxSideSize: Int,
 ) {
@@ -63,6 +65,17 @@ internal fun ReaderOverlayMode(
 
                 var modifier = Modifier
                     .fillMaxHeight()
+                // The PDF/HTML reader is full-bleed (no parent insets) and the top
+                // app bar floats over the content, so the sidebar's tab row would be
+                // hidden under both the status bar and the top app bar. Inset the
+                // sidebar panel below them so its tabs stay visible.
+                if (isPdfOrHtml) {
+                    val density = LocalDensity.current
+                    val sidebarTop = with(density) {
+                        WindowInsets.systemBarsIgnoringVisibility.getTop(this).toDp()
+                    } + TopAppBarDefaults.TopAppBarExpandedHeight
+                    modifier = modifier.padding(top = sidebarTop)
+                }
                 if (isTablet) {
                     modifier = modifier.width(330.dp)
                 } else {
@@ -73,6 +86,8 @@ internal fun ReaderOverlayMode(
                         viewState = viewState,
                         viewModel = viewModel,
                         annotationsLazyListState = annotationsLazyListState,
+                        outlineLazyListState = outlineLazyListState,
+                        thumbnailsLazyListState = thumbnailsLazyListState,
                         annotationMaxSideSize = annotationMaxSideSize,
                     )
                 }

@@ -25,6 +25,8 @@ internal fun ReaderSideBySideMode(
     viewModel: ReaderViewModel,
     viewState: ReaderViewState,
     annotationsLazyListState: LazyListState,
+    outlineLazyListState: LazyListState,
+    thumbnailsLazyListState: LazyListState,
     annotationMaxSideSize: Int,
 ) {
     val isPdfOrHtml = viewState.isPdfOrHtml()
@@ -49,15 +51,26 @@ internal fun ReaderSideBySideMode(
             }, label = ""
         ) { showSideBar ->
             if (showSideBar) {
+                var sidebarModifier = Modifier
+                    .width(330.dp)
+                    .fillMaxHeight()
+                // Full-bleed PDF/HTML has no top inset on the row and the top app bar
+                // floats over the content, so inset the sidebar panel below both the
+                // status bar and the top app bar to keep its tab row visible.
+                if (isPdfOrHtml) {
+                    val sidebarTop = WindowInsets.statusBars.asPaddingValues()
+                        .calculateTopPadding() + TopAppBarDefaults.TopAppBarExpandedHeight
+                    sidebarModifier = sidebarModifier.padding(top = sidebarTop)
+                }
                 Column(
-                    modifier = Modifier
-                        .width(330.dp)
-                        .fillMaxHeight()
+                    modifier = sidebarModifier
                 ) {
                     ReaderSidebar(
                         viewModel = viewModel,
                         viewState = viewState,
                         annotationsLazyListState = annotationsLazyListState,
+                        outlineLazyListState = outlineLazyListState,
+                        thumbnailsLazyListState = thumbnailsLazyListState,
                         annotationMaxSideSize = annotationMaxSideSize,
                     )
                 }

@@ -12,14 +12,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import com.google.gson.JsonElement
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +47,7 @@ private val levelPaddingConst = 8.dp
 internal fun ReaderOutlineSidebar(
     viewModel: ReaderViewModel,
     viewState: ReaderViewState,
+    outlineLazyListState: LazyListState,
 ) {
     if (viewState.isOutlineEmpty) {
         Box(
@@ -78,6 +81,7 @@ internal fun ReaderOutlineSidebar(
             ReaderOutlineTable(
                 viewModel = viewModel,
                 viewState = viewState,
+                outlineLazyListState = outlineLazyListState,
             )
         }
     }
@@ -87,8 +91,47 @@ internal fun ReaderOutlineSidebar(
 internal fun ReaderOutlineTable(
     viewModel: ReaderViewModel,
     viewState: ReaderViewState,
+    outlineLazyListState: LazyListState,
 ) {
     val roundCornerShape = RoundedCornerShape(size = 10.dp)
+    // Flatten the visible (non-collapsed) outline tree so the list can track
+    // index positions for current-page scrolling.
+    val visibleRows = remember(viewState.outlineSnapshot, viewState.outlineExpandedNodes) {
+        val rows = mutableListOf<OutlineRow>()
+        flattenVisibleOutline(
+            outlineItems = viewState.outlineSnapshot,
+            levelPadding = 8.dp,
+            isCollapsed = { viewState.isOutlineSectionCollapsed(it.id) },
+            out = rows,
+        )
+        rows
+    }
+    // The active row for the current page: the deepest item whose page is at or
+    // before the current page.
+    val activeIndex = remember(visibleRows, viewState.currentPageIndex) {
+        val page = viewState.currentPageIndex ?: return@remember -1
+        if (visibleRows.isEmpty()) return@remember -1
+        var best = -1
+        var bestPage = -1
+        visibleRows.forEachIndexed { index, row ->
+            val rowPage = row.item.outlinePageIndex()
+            if (rowPage != null && rowPage <= page && rowPage > bestPage) {
+                best = index
+                bestPage = rowPage
+            }
+        }
+        // The current page is before the first outline entry — scroll to the top.
+        if (best == -1) 0 else best
+    }
+    // Scroll the active row into view whenever it changes — when the page changes
+    // while the outline is visible, and once when the active row is first known.
+    // The list state is hoisted, so a manual scroll by the user is preserved
+    // across sidebar close/reopen.
+    LaunchedEffect(activeIndex, visibleRows) {
+        if (activeIndex >= 0 && activeIndex < visibleRows.size) {
+            outlineLazyListState.scrollToItem(activeIndex)
+        }
+    }
     LazyColumn(
         modifier = Modifier
             .padding(horizontal = 16.dp)
@@ -97,46 +140,56 @@ internal fun ReaderOutlineTable(
                 color = MaterialTheme.colorScheme.surface,
                 shape = roundCornerShape)
             .clip(roundCornerShape),
-        state = rememberLazyListState(),
+        state = outlineLazyListState,
     ) {
-        recursiveOutlineItem(
-            outlineItems = viewState.outlineSnapshot,
-            isCollapsed = { viewState.isOutlineSectionCollapsed(it.id) },
-            onItemTapped = { viewModel.onOutlineItemTapped(it) },
-            onItemChevronTapped = { viewModel.onOutlineItemChevronTapped(it) },
-        )
+        items(visibleRows, key = { it.item.id }) { row ->
+            OutlineItem(
+                levelPadding = row.levelPadding,
+                outline = row.item,
+                hasChildren = row.item.children.isNotEmpty(),
+                isCollapsed = viewState.isOutlineSectionCollapsed(row.item.id),
+                onItemTapped = { viewModel.onOutlineItemTapped(row.item) },
+                onItemChevronTapped = { viewModel.onOutlineItemChevronTapped(row.item) }
+            )
+        }
     }
 
 }
 
-private fun LazyListScope.recursiveOutlineItem(
-    levelPadding: Dp = 8.dp,
+private data class OutlineRow(
+    val item: ReaderWrapperOutline,
+    val levelPadding: Dp,
+)
+
+private fun flattenVisibleOutline(
     outlineItems: List<ReaderWrapperOutline>,
+    levelPadding: Dp,
     isCollapsed: (item: ReaderWrapperOutline) -> Boolean,
-    onItemTapped: (item: ReaderWrapperOutline) -> Unit,
-    onItemChevronTapped: (item: ReaderWrapperOutline) -> Unit,
+    out: MutableList<OutlineRow>,
 ) {
     for (item in outlineItems) {
-        item {
-            OutlineItem(
-                levelPadding = levelPadding,
-                outline = item,
-                hasChildren = item.children.isNotEmpty(),
-                isCollapsed = isCollapsed(item),
-                onItemTapped = { onItemTapped(item) },
-                onItemChevronTapped = { onItemChevronTapped(item) }
-            )
-        }
-
-        if (!isCollapsed(item)) {
-            recursiveOutlineItem(
-                levelPadding = levelPadding + levelPaddingConst,
+        out.add(OutlineRow(item = item, levelPadding = levelPadding))
+        if (item.children.isNotEmpty() && !isCollapsed(item)) {
+            flattenVisibleOutline(
                 outlineItems = item.children,
+                levelPadding = levelPadding + levelPaddingConst,
                 isCollapsed = isCollapsed,
-                onItemTapped = onItemTapped,
-                onItemChevronTapped = onItemChevronTapped
+                out = out,
             )
         }
+    }
+}
+
+// 0-based page index this outline item points at, or null if it has no resolved
+// position (e.g. a URL-only or unresolved destination).
+private fun ReaderWrapperOutline.outlinePageIndex(): Int? {
+    val position = (location["position"] as? JsonElement)
+        ?.takeIf { it.isJsonObject }?.asJsonObject ?: return null
+    val pageIndex = position["pageIndex"]?.takeIf { it.isJsonPrimitive } ?: return null
+    return try {
+        pageIndex.asInt
+    } catch (e: Exception) {
+        null
     }
 }
 

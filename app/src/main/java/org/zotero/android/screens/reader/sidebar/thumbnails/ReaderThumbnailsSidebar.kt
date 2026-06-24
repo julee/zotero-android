@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -42,11 +41,11 @@ import kotlin.math.abs
 @Composable
 internal fun ReaderThumbnailsSidebar(
     viewModel: ReaderThumbnailsViewModel = viewModel(),
+    thumbnailsLazyListState: LazyListState,
     annotationMaxSideSize: Int,
 ) {
     val viewState by viewModel.viewStates.observeAsState(ReaderThumbnailsViewState())
     val viewEffect by viewModel.viewEffects.observeAsState()
-    val thumbnailsLazyListState = rememberLazyListState()
 
     LaunchedEffect(thumbnailsLazyListState) {
         listenToScroll(thumbnailsLazyListState, viewModel)
