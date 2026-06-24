@@ -49,7 +49,10 @@ internal class ReaderAnnotationMoreViewModel @Inject constructor(
         }
         startObservingTheme()
 
-        val annotation = args.selectedAnnotation!!
+        val annotation = args.selectedAnnotation
+        if (annotation == null) {
+            return@initOnce
+        }
 
         val colors = AnnotationsConfig.colors(annotation.type)
         updateState {
@@ -106,16 +109,22 @@ internal class ReaderAnnotationMoreViewModel @Inject constructor(
     }
 
     fun onDeleteAnnotation() {
+        val key = viewState.key ?: run {
+            triggerEffect(ReaderAnnotationMoreViewEffect.Back)
+            return
+        }
         EventBus.getDefault().post(
             ReaderAnnotationMoreDeleteResult(
-                key = viewState.key!!,
+                key = key,
             )
         )
         triggerEffect(ReaderAnnotationMoreViewEffect.Back)
     }
 
     fun onSave() {
-        val text = when(viewState.type) {
+        val key = viewState.key ?: return
+        val type = viewState.type ?: return
+        val text = when(type) {
             AnnotationType.highlight -> {
                 viewState.highlightText
             }
@@ -128,8 +137,8 @@ internal class ReaderAnnotationMoreViewModel @Inject constructor(
         }
         EventBus.getDefault().post(
             ReaderAnnotationMoreSaveResult(
-                key = viewState.key!!,
-                type = viewState.type!!,
+                key = key,
+                type = type,
                 color = viewState.color,
                 lineWidth = viewState.lineWidth,
                 fontSize = viewState.fontSize,

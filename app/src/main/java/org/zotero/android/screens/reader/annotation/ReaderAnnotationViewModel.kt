@@ -60,7 +60,10 @@ internal class ReaderAnnotationViewModel @Inject constructor(
         }
         startObservingTheme()
 
-        val annotation = args.selectedAnnotation!!
+        val annotation = args.selectedAnnotation
+        if (annotation == null) {
+            return@initOnce
+        }
 
         val colors = AnnotationsConfig.colors(annotation.type)
         val selectedColor = annotation.color
@@ -69,7 +72,7 @@ internal class ReaderAnnotationViewModel @Inject constructor(
                 color = selectedColor,
                 colors = colors.toImmutableList(),
                 annotation = annotation,
-                tags = args.selectedAnnotation.tags.toImmutableList(),
+                tags = annotation.tags.toImmutableList(),
                 commentFocusText = annotation.comment,
             )
         }
@@ -112,9 +115,10 @@ internal class ReaderAnnotationViewModel @Inject constructor(
     }
 
     private fun postAnnotationCommentResult() {
+        val key = viewState.annotation?.key ?: return
         EventBus.getDefault().post(
             ReaderAnnotationCommentResult(
-                annotationKey = viewState.annotation!!.key,
+                annotationKey = key,
                 comment = viewState.commentFocusText
             )
         )
@@ -127,22 +131,27 @@ internal class ReaderAnnotationViewModel @Inject constructor(
     }
 
     fun onColorSelected(color: String) {
+        val key = viewState.annotation?.key ?: return
         updateState {
             copy(color = color)
         }
         EventBus.getDefault().post(
             ReaderAnnotationColorResult(
-                annotationKey = viewState.annotation!!.key,
+                annotationKey = key,
                 color = color
             )
         )
     }
 
     fun onDeleteAnnotation() {
+        val key = viewState.annotation?.key ?: run {
+            triggerEffect(ReaderAnnotationViewEffect.Back)
+            return
+        }
         isDeletingAnnotation = true
         EventBus.getDefault().post(
             ReaderAnnotationDeleteResult(
-                key = viewState.annotation!!.key,
+                key = key,
             )
         )
         triggerEffect(ReaderAnnotationViewEffect.Back)
