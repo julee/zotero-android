@@ -1,0 +1,54 @@
+name: Build Release APK
+
+# Builds the dev/debug APK and publishes it to a GitHub Release.
+# - Push a tag like `v1.0.0` to build and attach the APK to a release.
+# - Or run manually (workflow_dispatch) to just build and download the APK
+#   as a workflow artifact (no release is created).
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build dev/debug APK
+        run: ./gradlew :app:assembleDevDebug --no-daemon --stacktrace
+
+      - name: Locate APK
+        id: apk
+        run: |
+          APK=$(find app/build/outputs/apk -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then echo "No APK produced"; exit 1; fi
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "Found APK: $APK"
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zotero-dev-debug-apk
+          path: ${{ steps.apk.outputs.path }}
+
+      - name: Publish APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk.outputs.path }}
+          generate_release_notes: true
