@@ -73,6 +73,14 @@ class ReaderWebCallChainExecutor @Inject constructor(
                     val data = bodyElement.asJsonObject
                     val event = data["event"].asString
                     Timber.i("ReaderWebCallChainExecutor: $event")
+                    if (event == "onSetSelectionPopup" || event == "onSaveAnnotations"
+                        || event == "onSetAnnotationPopup" || event == "onSelectAnnotations") {
+                        org.zotero.android.screens.reader.data.DebugFileLog.log(
+                            "EVENT $event: ${data["params"]}"
+                        )
+                    } else {
+                        org.zotero.android.screens.reader.data.DebugFileLog.log("EVENT $event")
+                    }
                     when (event) {
                         "onInitialized" -> {
                             observable.emitAsync(
@@ -260,6 +268,7 @@ class ReaderWebCallChainExecutor @Inject constructor(
 
                 "logHandler" -> {
                     Timber.d("JSLOG: ${bodyElement.asString}")
+                    org.zotero.android.screens.reader.data.DebugFileLog.log("JS: ${bodyElement.asString}")
                 }
 
             }
@@ -464,6 +473,16 @@ class ReaderWebCallChainExecutor @Inject constructor(
 
     fun setCropConfig(configJson: String) {
         readerWebViewHandler.evaluateJavascript("window._view.setCropConfig($configJson);") {}
+    }
+
+    // TEMP debug: trigger a programmatic text selection in the reader.
+    fun debugSelectText() {
+        readerWebViewHandler.evaluateJavascript("window._view.__debugSelectFirstText();") {}
+    }
+
+    // TEMP debug: turn the crop reading mode on/off to isolate interaction issues.
+    fun setCropEnabled(enabled: Boolean) {
+        readerWebViewHandler.evaluateJavascript("window._view.setReadingCropMode($enabled);") {}
     }
 
 }

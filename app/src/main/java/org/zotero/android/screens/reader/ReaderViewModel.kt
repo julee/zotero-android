@@ -364,6 +364,7 @@ class ReaderViewModel @Inject constructor(
         this.isTablet = isTablet
 
         EventBus.getDefault().register(this)
+        registerDebugReceiver()
 
         initState()
         setupWebCallChainEventStream()
@@ -693,8 +694,14 @@ class ReaderViewModel @Inject constructor(
 
 
     private suspend fun saveAnnotationFromSelection(type: AnnotationType) {
+        org.zotero.android.screens.reader.data.DebugFileLog.log(
+            "saveAnnotationFromSelection type=$type fileType=${viewState.fileType} selectedTextParams=${this.selectedTextParams}"
+        )
         val textParams =
-            this.selectedTextParams?.get("annotation")?.asJsonObject ?: return
+            this.selectedTextParams?.get("annotation")?.asJsonObject ?: run {
+                org.zotero.android.screens.reader.data.DebugFileLog.log("saveAnnotationFromSelection: no textParams, abort")
+                return
+            }
         val params = params(textParams, type) ?: return
         this.selectedTextParams = null
 
@@ -703,6 +710,9 @@ class ReaderViewModel @Inject constructor(
                 pdfAnnotations = JsonArray().apply { add(params) },
                 author = this.username,
                 isAuthor = true
+            )
+            org.zotero.android.screens.reader.data.DebugFileLog.log(
+                "PDF selection: params=$params parsedCount=${annotations.size}"
             )
             if (annotations.isEmpty()) {
                 return
@@ -749,8 +759,8 @@ class ReaderViewModel @Inject constructor(
         params.addProperty("id",KeyGenerator.newKey())
         params.addProperty("type", type.name)
         params.addProperty("color", color)
-        params.addProperty("dateModified", iso8601DateFormatV3.format(date))
-        params.addProperty("dateCreated", iso8601DateFormatV3.format(date))
+        params.addProperty("dateModified", iso8601WithFractionalSeconds.format(date))
+        params.addProperty("dateCreated", iso8601WithFractionalSeconds.format(date))
         params.add("tags", JsonArray())
         params.addProperty("pageLabel", "")
         params.addProperty("comment", "")
@@ -1471,8 +1481,67 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    private var debugReceiver: android.content.BroadcastReceiver? = null
+
+    // TEMP debug: drive the highlight-from-selection flow via adb broadcasts, since
+    // adb input can't reliably synthesize a PDF.js text-layer selection.
+    //   adb shell am broadcast -a org.zotero.debug.HLFLOW   (select then highlight)
+    private fun registerDebugReceiver() {
+        if (!org.zotero.android.BuildConfig.DEBUG) {
+            return
+        }
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                when (intent?.action) {
+                    "org.zotero.debug.SELECT" -> readerWebCallChainExecutor.debugSelectText()
+                    "org.zotero.debug.HIGHLIGHT" -> onHighlight()
+                    "org.zotero.debug.UNDERLINE" -> onUnderline()
+                    "org.zotero.debug.HLFLOW" -> {
+                        readerWebCallChainExecutor.debugSelectText()
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(800)
+                            onHighlight()
+                        }
+                    }
+                    "org.zotero.debug.CROPOFF" -> {
+                        readerWebCallChainExecutor.setCropEnabled(false)
+                    }
+                    "org.zotero.debug.CROPON" -> {
+                        readerWebCallChainExecutor.setCropEnabled(true)
+                    }
+                    "org.zotero.debug.EDITANNOT" -> {
+                        val key = viewState.sortedKeys.firstOrNull()
+                        org.zotero.android.screens.reader.data.DebugFileLog.log("EDITANNOT firstKey=$key")
+                        if (key != null) {
+                            selectAnnotation(key)
+                        }
+                    }
+                }
+            }
+        }
+        val filter = android.content.IntentFilter().apply {
+            addAction("org.zotero.debug.SELECT")
+            addAction("org.zotero.debug.HIGHLIGHT")
+            addAction("org.zotero.debug.UNDERLINE")
+            addAction("org.zotero.debug.HLFLOW")
+            addAction("org.zotero.debug.EDITANNOT")
+            addAction("org.zotero.debug.CROPOFF")
+            addAction("org.zotero.debug.CROPON")
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+        )
+        debugReceiver = receiver
+    }
+
     override fun onCleared() {
         EventBus.getDefault().unregister(this)
+        debugReceiver?.let {
+            try {
+                context.unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
 
         item?.removeAllChangeListeners()
         annotationItems?.removeAllChangeListeners()
@@ -1625,6 +1694,9 @@ class ReaderViewModel @Inject constructor(
 
         if (viewState.pageProgress != pageProgress) {
             updateState { copy(pageProgress = pageProgress) }
+        }
+        if (viewState.currentPageIndex != pageIndex) {
+            updateState { copy(currentPageIndex = pageIndex) }
         }
     }
 
@@ -1944,10 +2016,21 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    // Resolve a NewReaderAnnotation by key, falling back to the database when it isn't
+    // in the in-memory map (e.g. PDF annotations not yet mirrored into `annotations`).
+    private fun newReaderAnnotationForKey(key: String?): NewReaderAnnotation? {
+        if (key == null) {
+            return null
+        }
+        this.annotations[key]?.let { return it }
+        val item = this.annotationItems?.where()?.key(key)?.findFirst() ?: return null
+        return generateAnnotationJsonForReader(item)?.first
+    }
+
     fun onMoreOptionsForItemClicked() {
         annotationEditReaderKey = viewState.selectedAnnotationKey
 
-        val selectedAnnotation = annotationEditReaderKey?.let { this.annotations[it] }
+        val selectedAnnotation = newReaderAnnotationForKey(annotationEditReaderKey)
         val args = ReaderAnnotationMoreArgs(
             selectedAnnotation = selectedAnnotation,
             library = this.library,
@@ -2208,7 +2291,7 @@ class ReaderViewModel @Inject constructor(
         val showAnnotationPopup = !viewState.showSideBar && viewState.selectedAnnotationKey != null
         if (showAnnotationPopup) {
             annotationEditReaderKey = viewState.selectedAnnotationKey
-            val selectedAnnotation = annotationEditReaderKey?.let { this.annotations[it] }
+            val selectedAnnotation = newReaderAnnotationForKey(annotationEditReaderKey)
             val readerAnnotationArgs = ReaderAnnotationArgs(
                 selectedAnnotation = selectedAnnotation,
                 library = this.library
@@ -2476,6 +2559,7 @@ data class ReaderViewState(
     val focusDocumentLocationAnnotationKey: String? = null,
     val annotationsBitmapCache: PersistentMap<String, Bitmap> = persistentMapOf(),
     val pageProgress: String? = null,
+    val currentPageIndex: Int? = null,
     val fileType: ReaderFileType = ReaderFileType.EPUB,
     ) : ViewState {
     fun isAnnotationSelected(annotationKey: String): Boolean {
