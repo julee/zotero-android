@@ -40,6 +40,7 @@ open class Defaults @Inject constructor(
     private val wasPspdfkitInitialized = "wasPspdfkitInitialized"
     private val pdfSettings = "pdfSettings"
     private val highlightColorHex = "highlightColorHex"
+    private val readerCropConfigPrefix = "readerCropConfig_"
     private val noteColorHex = "noteColorHex"
     private val squareColorHex = "squareColorHex"
     private val inkColorHex = "inkColorHex"
@@ -96,11 +97,11 @@ open class Defaults @Inject constructor(
 
     // Per-file PDF crop config (odd/even normalized rects + mode), stored as JSON.
     fun setReaderCropConfig(attachmentKey: String, json: String) {
-        sharedPreferences.edit { putString("readerCropConfig_$attachmentKey", json) }
+        sharedPreferences.edit { putString("$readerCropConfigPrefix$attachmentKey", json) }
     }
 
     fun getReaderCropConfig(attachmentKey: String): String? {
-        return sharedPreferences.getString("readerCropConfig_$attachmentKey", null)
+        return sharedPreferences.getString("$readerCropConfigPrefix$attachmentKey", null)
     }
 
     fun setNoteColorHex(str: String) {

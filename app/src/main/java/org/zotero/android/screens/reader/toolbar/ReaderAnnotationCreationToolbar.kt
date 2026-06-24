@@ -72,25 +72,7 @@ private val htmlEpubReaderToolsList = listOf(
     ),
 )
 
-private val pdfReaderToolsList = listOf(
-    ReaderTool(
-        type = ReaderAnnotationTool.highlight,
-        title = Strings.pdf_annotation_toolbar_highlight,
-        image = Drawables.annotate_highlight,
-        isHidden = false
-    ),
-    ReaderTool(
-        type = ReaderAnnotationTool.underline,
-        title = Strings.pdf_annotation_toolbar_underline,
-        image = Drawables.annotate_underline,
-        isHidden = false
-    ),
-    ReaderTool(
-        type = ReaderAnnotationTool.note,
-        title = Strings.pdf_annotation_toolbar_note,
-        image = Drawables.annotate_note,
-        isHidden = false
-    ),
+private val pdfReaderToolsList = htmlEpubReaderToolsList + listOf(
     ReaderTool(
         type = ReaderAnnotationTool.text,
         title = Strings.pdf_annotation_toolbar_text,
@@ -205,7 +187,10 @@ internal fun BoxScope.ReaderAnnotationCreationToolbar(
 
     LazyColumn(
         modifier = columnModifier
-            .padding(start = animatedExtraLeftPadding, top = 16.dp)
+            // Push the toolbar down below the status bar and the text-selection floating
+            // toolbar so its top tools aren't covered by them.
+            .statusBarsPadding()
+            .padding(start = animatedExtraLeftPadding, top = 96.dp)
             .background(
                 color = snapAreaBackgroundColor,
                 shape = roundCornerShape
