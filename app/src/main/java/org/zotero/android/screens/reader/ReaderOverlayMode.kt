@@ -13,10 +13,24 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import org.zotero.android.architecture.ui.CustomLayoutSize
 import org.zotero.android.screens.reader.sidebar.ReaderSidebar
+
+// On a tall, narrow phone screen a full-width sidebar is fine. On a near-square
+// (unfolded foldable) or landscape screen it would bury the whole page, so the
+// sidebar floats over the left of the reading area instead. We can't rely on the
+// (min-dimension) tablet classification — a foldable's near-1:1 inner display is
+// often small in dp yet still "small" (overlay mode). Aspect ratio is the robust
+// signal; a large width also forces floating even when squarish.
+private const val SIDEBAR_FLOAT_TALL_NARROW_RATIO = 1.4f
+private const val SIDEBAR_FLOAT_MIN_SCREEN_WIDTH_DP = 600
+private val SIDEBAR_FLOATING_MAX_WIDTH = 360.dp
+// Cap the floating sidebar to a fraction of the width so even a small near-square
+// screen keeps a usable strip of the page visible beside it.
+private const val SIDEBAR_FLOATING_WIDTH_FRACTION = 0.66f
 
 @Composable
 internal fun ReaderOverlayMode(
@@ -79,7 +93,20 @@ internal fun ReaderOverlayMode(
                 if (isTablet) {
                     modifier = modifier.width(330.dp)
                 } else {
-                    modifier = modifier.fillMaxWidth()
+                    val configuration = LocalConfiguration.current
+                    val widthDp = configuration.screenWidthDp
+                    val heightDp = configuration.screenHeightDp
+                    val isTallNarrowPhone = heightDp >= widthDp * SIDEBAR_FLOAT_TALL_NARROW_RATIO &&
+                        widthDp < SIDEBAR_FLOAT_MIN_SCREEN_WIDTH_DP
+                    modifier = if (isTallNarrowPhone) {
+                        modifier.fillMaxWidth()
+                    } else {
+                        val floatingWidth = minOf(
+                            SIDEBAR_FLOATING_MAX_WIDTH.value,
+                            widthDp * SIDEBAR_FLOATING_WIDTH_FRACTION
+                        ).dp
+                        modifier.width(floatingWidth)
+                    }
                 }
                 Box(modifier = modifier) {
                     ReaderSidebar(
