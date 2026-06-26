@@ -22,10 +22,10 @@ import org.zotero.android.sync.UrlDetector
  *  - synced `RPageIndex` objects (one per attachment ever opened on any device,
  *    carrying the server `version` used as the cross-device recency proxy).
  *
- * Each candidate is resolved through its `RItem`; if that transiently fails for a local
- * entry, the entry's cached display info is used so it never flickers out. Ordering:
- * files opened on this device (have a local timestamp) come first, newest first; the
- * rest follow by `version`.
+ * Ordering: files opened on this device (have a local timestamp) come first, newest
+ * first; the rest follow by `version`. The candidates are ranked and capped to
+ * [MAX_ITEMS] BEFORE the expensive per-item resolution (RItem lookup + AttachmentCreator),
+ * so a large read history doesn't turn each load into hundreds of DB hits.
  */
 class ReadRecentlyReadItemsDbRequest(
     private val localEntries: List<RecentlyReadStorage.Entry>,
@@ -71,16 +71,16 @@ class ReadRecentlyReadItemsDbRequest(
         }
 
         return candidates.values
-            .mapNotNull { candidate -> resolve(database, candidate) }
             .sortedWith(
-                compareByDescending<Holder> { it.localTimestamp != null }
+                compareByDescending<Candidate> { it.localTimestamp != null }
                     .thenByDescending { it.localTimestamp ?: 0L }
                     .thenByDescending { it.version }
             )
-            .map { it.item }
+            .take(MAX_ITEMS)
+            .mapNotNull { candidate -> resolve(database, candidate) }
     }
 
-    private fun resolve(database: Realm, candidate: Candidate): Holder? {
+    private fun resolve(database: Realm, candidate: Candidate): RecentlyReadListItem? {
         resolveFromDb(database, candidate)?.let { return it }
         // DB resolution failed (e.g. a just-read file's RItem is mid-sync). Render a
         // local entry from its cached display info so it doesn't drop off the list.
@@ -89,26 +89,22 @@ class ReadRecentlyReadItemsDbRequest(
         if (contentType !in READABLE_CONTENT_TYPES) {
             return null
         }
-        return Holder(
-            item = RecentlyReadListItem(
-                key = candidate.key,
-                parentKey = stored.parentKey,
-                libraryId = candidate.libraryId,
-                title = stored.title?.takeIf { it.isNotBlank() }
-                    ?: stored.filename?.takeIf { it.isNotBlank() }
-                    ?: candidate.key,
-                typeIconName = stored.typeIconName?.takeIf { it.isNotBlank() }
-                    ?: iconNameForContentType(contentType),
-                contentType = contentType,
-                filename = stored.filename ?: "",
-                lastOpened = candidate.localTimestamp,
-            ),
-            localTimestamp = candidate.localTimestamp,
-            version = candidate.version,
+        return RecentlyReadListItem(
+            key = candidate.key,
+            parentKey = stored.parentKey,
+            libraryId = candidate.libraryId,
+            title = stored.title?.takeIf { it.isNotBlank() }
+                ?: stored.filename?.takeIf { it.isNotBlank() }
+                ?: candidate.key,
+            typeIconName = stored.typeIconName?.takeIf { it.isNotBlank() }
+                ?: iconNameForContentType(contentType),
+            contentType = contentType,
+            filename = stored.filename ?: "",
+            lastOpened = candidate.localTimestamp,
         )
     }
 
-    private fun resolveFromDb(database: Realm, candidate: Candidate): Holder? {
+    private fun resolveFromDb(database: Realm, candidate: Candidate): RecentlyReadListItem? {
         val rItem = database.where<RItem>().key(candidate.key, candidate.libraryId).findFirst()
             ?: return null
         if (rItem.deleted || rItem.trash) {
@@ -132,27 +128,20 @@ class ReadRecentlyReadItemsDbRequest(
         val title = parent?.displayTitle?.takeIf { it.isNotBlank() } ?: attachment.title
         val typeIconName = parent?.allItemsDbRow?.typeIconName?.takeIf { it.isNotBlank() }
             ?: iconNameForContentType(fileKind.contentType)
-        return Holder(
-            item = RecentlyReadListItem(
-                key = candidate.key,
-                parentKey = parent?.key,
-                libraryId = candidate.libraryId,
-                title = title,
-                typeIconName = typeIconName,
-                contentType = fileKind.contentType,
-                filename = fileKind.filename,
-                lastOpened = candidate.localTimestamp,
-            ),
-            localTimestamp = candidate.localTimestamp,
-            version = candidate.version,
+        return RecentlyReadListItem(
+            key = candidate.key,
+            parentKey = parent?.key,
+            libraryId = candidate.libraryId,
+            title = title,
+            typeIconName = typeIconName,
+            contentType = fileKind.contentType,
+            filename = fileKind.filename,
+            lastOpened = candidate.localTimestamp,
         )
     }
 
-    private fun iconNameForContentType(contentType: String): String = when (contentType) {
-        "application/pdf" -> "item_type_pdf"
-        "application/epub+zip" -> "item_type_epub"
-        else -> "item_type_document"
-    }
+    private fun iconNameForContentType(contentType: String): String =
+        RecentlyReadContentTypes.iconName(contentType)
 
     private data class Candidate(
         val libraryId: LibraryIdentifier,
@@ -162,17 +151,8 @@ class ReadRecentlyReadItemsDbRequest(
         val stored: RecentlyReadStorage.Entry?,
     )
 
-    private data class Holder(
-        val item: RecentlyReadListItem,
-        val localTimestamp: Long?,
-        val version: Int,
-    )
-
     companion object {
-        private val READABLE_CONTENT_TYPES = setOf(
-            "application/pdf",
-            "application/epub+zip",
-            "text/html",
-        )
+        private const val MAX_ITEMS = 60
+        private val READABLE_CONTENT_TYPES = RecentlyReadContentTypes.READABLE
     }
 }

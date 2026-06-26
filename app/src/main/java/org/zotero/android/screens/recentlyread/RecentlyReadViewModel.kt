@@ -19,6 +19,7 @@ import org.zotero.android.database.objects.Attachment
 import org.zotero.android.files.FileStore
 import org.zotero.android.screens.recentlyread.data.ReadRecentlyReadItemsDbRequest
 import org.zotero.android.screens.recentlyread.data.ReadRecentlyReadOpenDataDbRequest
+import org.zotero.android.screens.recentlyread.data.RecentlyReadContentTypes
 import org.zotero.android.screens.recentlyread.data.RecentlyReadListItem
 import org.zotero.android.screens.recentlyread.data.RecentlyReadOpenData
 import org.zotero.android.screens.reader.data.ReaderArgs
@@ -40,11 +41,18 @@ internal class RecentlyReadViewModel @Inject constructor(
 
     private var pendingOpen: RecentlyReadOpenData? = null
     // Guards against a slower, earlier load applying its result after a newer one
-    // (the screen reloads on every entry, so loads can overlap).
+    // (storage changes + the initial load can overlap).
     private var loadGeneration = 0
 
     fun init() = initOnce {
         setupDownloadObserving()
+        // Reactive: rebuild the list whenever an open is recorded/enriched — including
+        // while this screen sits behind the reader — so a just-read file is already at
+        // the top by the time the user returns (no dependence on resume timing).
+        recentlyReadStorage.changes
+            .onEach { load() }
+            .launchIn(viewModelScope)
+        load()
     }
 
     fun load() {
@@ -91,20 +99,19 @@ internal class RecentlyReadViewModel @Inject constructor(
     }
 
     fun onItemTapped(item: RecentlyReadListItem) {
-        if (viewState.downloadingKey != null) {
+        val downloadingKey = viewState.downloadingKey
+        if (downloadingKey == item.key) {
+            // Tapped the in-progress row again — cancel it (escape hatch so the spinner
+            // can never get stuck).
+            pendingOpen = null
+            attachmentDownloader.cancel(key = item.key, libraryId = item.libraryId)
+            updateState { copy(downloadingKey = null) }
             return
         }
-        // Optimistically float the tapped file to the top with a fresh timestamp, so
-        // it's already in the right place when we come back from the reader (the screen
-        // only does a full reload on a fresh entry, which avoids the post-read sync
-        // churn briefly hiding the just-opened file).
-        val movedToTop = item.copy(lastOpened = System.currentTimeMillis())
-        updateState {
-            copy(
-                items = listOf(movedToTop) + items.filterNot { it.uniqueId == item.uniqueId },
-                downloadingKey = item.key,
-            )
+        if (downloadingKey != null) {
+            return
         }
+        updateState { copy(downloadingKey = item.key) }
         viewModelScope.launch {
             val openData = perform(
                 dbWrapper = dbWrapperMain,
@@ -118,7 +125,13 @@ internal class RecentlyReadViewModel @Inject constructor(
                 )
             ).ifFailure {
                 Timber.e(it, "RecentlyReadViewModel: can't resolve attachment ${item.key}")
-                updateState { copy(downloadingKey = null) }
+                if (viewState.downloadingKey == item.key) {
+                    updateState { copy(downloadingKey = null) }
+                }
+                return@launch
+            }
+            // Cancelled (or superseded) while resolving — don't start the download.
+            if (viewState.downloadingKey != item.key) {
                 return@launch
             }
             pendingOpen = openData
@@ -168,12 +181,21 @@ internal class RecentlyReadViewModel @Inject constructor(
     }
 
     private fun openReader(openData: RecentlyReadOpenData) {
-        val fileKind = openData.attachment.type as? Attachment.Kind.file ?: return
+        val fileKind = openData.attachment.type as? Attachment.Kind.file
+        if (fileKind == null || fileKind.contentType !in RecentlyReadContentTypes.READABLE) {
+            Timber.w("RecentlyReadViewModel: not a readable attachment ${openData.attachment.key}")
+            return
+        }
         val file = fileStore.attachmentFile(
             libraryId = openData.library.identifier,
             key = openData.attachment.key,
             filename = fileKind.filename,
         )
+        if (!file.exists()) {
+            // File was evicted/removed since the list was built — nothing to open.
+            Timber.w("RecentlyReadViewModel: file missing for ${openData.attachment.key}")
+            return
+        }
         val readerArgs = ReaderArgs(
             key = openData.attachment.key,
             parentKey = openData.parentKey,

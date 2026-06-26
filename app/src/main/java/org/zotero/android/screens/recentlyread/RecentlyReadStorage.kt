@@ -2,6 +2,10 @@ package org.zotero.android.screens.recentlyread
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import org.zotero.android.architecture.Defaults
 import org.zotero.android.database.objects.RCustomLibraryType
 import org.zotero.android.sync.LibraryIdentifier
@@ -36,13 +40,22 @@ class RecentlyReadStorage @Inject constructor(
         val parentKey: String?,
     )
 
+    private val _changes = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** Emits whenever the stored set changes (an open is recorded / enriched). */
+    val changes: SharedFlow<Unit> = _changes.asSharedFlow()
+
     /** Records (or moves to the top) an open, seeding the display info the reader knows. */
     fun register(libraryId: LibraryIdentifier, key: String, filename: String, contentType: String) {
         if (key.isBlank()) {
             return
         }
         val composite = compositeKey(libraryId, key)
-        val existing = readStored().firstOrNull { it.composite() == composite }
+        val stored = readStored()
+        val existing = stored.firstOrNull { it.composite() == composite }
         val now = System.currentTimeMillis()
         val updated = StoredEntry(
             lib = encodeLibraryId(libraryId),
@@ -55,8 +68,9 @@ class RecentlyReadStorage @Inject constructor(
             filename = filename,
             parentKey = existing?.parentKey,
         )
-        val others = readStored().filterNot { it.composite() == composite }
+        val others = stored.filterNot { it.composite() == composite }
         write((listOf(updated) + others).take(MAX_ENTRIES))
+        _changes.tryEmit(Unit)
     }
 
     /**
@@ -85,6 +99,9 @@ class RecentlyReadStorage @Inject constructor(
             next
         }
         if (changed) {
+            // No changes emission here: enrichment only refines titles/icons (not order
+            // or membership) and the caller already has the resolved values, so there's
+            // nothing for observers to reload — and it avoids a load→merge→reload loop.
             write(stored)
         }
     }

@@ -84,6 +84,7 @@ import org.zotero.android.screens.reader.data.ReaderAnnotationTool
 import org.zotero.android.screens.reader.data.ReaderAnnotationsFilter
 import org.zotero.android.screens.reader.data.ReaderArgs
 import org.zotero.android.screens.recentlyread.RecentlyReadStorage
+import org.zotero.android.screens.recentlyread.data.RecentlyReadContentTypes
 import org.zotero.android.screens.reader.data.ReaderDocumentData
 import org.zotero.android.screens.reader.data.ReaderFileType
 import org.zotero.android.screens.reader.data.ReaderOutline
@@ -450,9 +451,9 @@ class ReaderViewModel @Inject constructor(
             key = this.key,
             filename = params.uri.lastPathSegment ?: this.key,
             contentType = when (fileType) {
-                ReaderFileType.PDF -> "application/pdf"
-                ReaderFileType.EPUB -> "application/epub+zip"
-                ReaderFileType.HTML -> "text/html"
+                ReaderFileType.PDF -> RecentlyReadContentTypes.PDF
+                ReaderFileType.EPUB -> RecentlyReadContentTypes.EPUB
+                ReaderFileType.HTML -> RecentlyReadContentTypes.HTML
             },
         )
         updateState {

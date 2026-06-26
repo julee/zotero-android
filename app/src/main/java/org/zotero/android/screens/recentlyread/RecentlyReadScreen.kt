@@ -24,8 +24,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ripple
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,13 +32,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import org.zotero.android.androidx.content.getDrawableByItemType
 import org.zotero.android.screens.recentlyread.data.RecentlyReadListItem
 import org.zotero.android.uicomponents.CustomScaffoldM3
@@ -52,25 +47,17 @@ import org.zotero.android.uicomponents.themem3.AppThemeM3
 internal fun RecentlyReadScreen(
     onBack: () -> Unit,
     onOpenReader: (String) -> Unit,
+    viewModel: RecentlyReadViewModel = hiltViewModel(),
 ) {
     AppThemeM3 {
-        // Activity-scoped so the screen always observes a single, stable instance —
-        // returning from the reader doesn't hand us a different ViewModel/composition.
-        val activity = LocalActivity.current as ComponentActivity
-        val viewModel: RecentlyReadViewModel = hiltViewModel(activity)
         val viewState by viewModel.viewStates.observeAsState(RecentlyReadViewState())
         val viewEffect by viewModel.viewEffects.observeAsState()
 
+        // init() loads once and then keeps the list in sync reactively (it observes
+        // RecentlyReadStorage), so opens recorded while this screen is behind the
+        // reader are already reflected by the time we return.
         LaunchedEffect(key1 = Unit) {
             viewModel.init()
-        }
-        // Reload whenever the screen is resumed (first show + each return from the
-        // reader) so the just-read file re-sorts to the top.
-        val lifecycle = LocalLifecycleOwner.current.lifecycle
-        LaunchedEffect(lifecycle) {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.load()
-            }
         }
 
         LaunchedEffect(key1 = viewEffect) {
