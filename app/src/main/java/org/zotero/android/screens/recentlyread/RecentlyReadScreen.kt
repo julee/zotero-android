@@ -1,6 +1,7 @@
 package org.zotero.android.screens.recentlyread
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -155,11 +156,12 @@ private fun RecentlyReadRow(
     ) {
         val iconRes = LocalContext.current.getDrawableByItemType(item.typeIconName)
         if (iconRes != 0) {
-            Icon(
+            // Match the All Items list: full-color icon (no tint), so a PDF/journal
+            // article keeps its real colors instead of being recolored solid.
+            Image(
                 modifier = Modifier.size(28.dp),
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.width(12.dp))
         }
