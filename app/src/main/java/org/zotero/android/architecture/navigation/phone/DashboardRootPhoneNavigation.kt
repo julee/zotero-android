@@ -24,8 +24,10 @@ import org.zotero.android.architecture.navigation.imageViewerScreen
 import org.zotero.android.architecture.navigation.itemDetailsScreen
 import org.zotero.android.architecture.navigation.librariesScreen
 import org.zotero.android.architecture.navigation.loadingScreen
+import org.zotero.android.architecture.navigation.recentlyReadScreen
 import org.zotero.android.architecture.navigation.toAddOrEditNote
 import org.zotero.android.architecture.navigation.toImageViewerScreen
+import org.zotero.android.architecture.navigation.toRecentlyRead
 import org.zotero.android.architecture.navigation.toItemDetails
 import org.zotero.android.architecture.navigation.toVideoPlayerScreen
 import org.zotero.android.architecture.navigation.toZoteroWebViewScreen
@@ -111,6 +113,10 @@ internal fun DashboardRootPhoneNavigation(
             navigateToCollectionEdit = {
                 ScreenArguments.allItemsCollectionsLibsNavDirectionLeftToRight = true
                 navigation.toCollectionEditScreen()
+            },
+            navigateToRecentlyRead = {
+                ScreenArguments.allItemsCollectionsLibsNavDirectionLeftToRight = true
+                navigation.toRecentlyRead()
             },
             isTablet = false,
         )
@@ -276,6 +282,12 @@ internal fun DashboardRootPhoneNavigation(
             navigation = navigation,
             navigateToTagPicker = navigation::toTagPicker,
             onOpenWebpage = onOpenWebpage,
+        )
+        recentlyReadScreen(
+            onBack = navigation::onBack,
+            onOpenReader = { readerParams ->
+                navigation.toReaderScreen(readerParams = readerParams)
+            },
         )
     }
 }

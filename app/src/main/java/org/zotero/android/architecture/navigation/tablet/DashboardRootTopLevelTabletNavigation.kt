@@ -17,7 +17,9 @@ import org.zotero.android.architecture.navigation.ZoteroNavigation
 import org.zotero.android.architecture.navigation.addNoteScreen
 import org.zotero.android.architecture.navigation.dialogDynamicHeight
 import org.zotero.android.architecture.navigation.dialogFixedMaxHeight
+import org.zotero.android.architecture.navigation.recentlyReadScreen
 import org.zotero.android.architecture.navigation.toAddOrEditNote
+import org.zotero.android.architecture.navigation.toRecentlyRead
 import org.zotero.android.architecture.navigation.toZoteroWebViewScreen
 import org.zotero.android.architecture.navigation.zoterWebViewScreen
 import org.zotero.android.pdf.pdfReaderScreenAndNavigationForTablet
@@ -76,7 +78,8 @@ internal fun DashboardRootTopLevelTabletNavigation(
             toZoteroWebViewScreen = navigation::toZoteroWebViewScreen,
             onExitApp = onExitApp,
             onExportHtml = onExportHtml,
-            navigateToRetrieveMetadata = navigation::toRetrieveMetadata
+            navigateToRetrieveMetadata = navigation::toRetrieveMetadata,
+            navigateToRecentlyRead = { navigation.toRecentlyRead() },
         )
         pdfReaderScreenAndNavigationForTablet(
             onExportPdf = onExportPdf,
@@ -100,6 +103,12 @@ internal fun DashboardRootTopLevelTabletNavigation(
             onOpenWebpage = onOpenWebpage,
             navigateToTagPicker = navigation::toTagPickerScreen,
         )
+        recentlyReadScreen(
+            onBack = navigation::onBack,
+            onOpenReader = { readerParams ->
+                navigation.toReaderScreen(readerParams = readerParams)
+            },
+        )
     }
 }
 
@@ -113,6 +122,7 @@ private fun NavGraphBuilder.dashboardScreen(
     toAddOrEditNote: (String) -> Unit,
     toZoteroWebViewScreen: (String) -> Unit,
     navigateToRetrieveMetadata: (params: String) -> Unit,
+    navigateToRecentlyRead: () -> Unit,
     onOpenWebpage: (url: String) -> Unit,
     onExitApp:() -> Unit,
     viewEffect: Consumable<DashboardViewEffect>?,
@@ -132,6 +142,7 @@ private fun NavGraphBuilder.dashboardScreen(
             toAddOrEditNote = toAddOrEditNote,
             toZoteroWebViewScreen = toZoteroWebViewScreen,
             navigateToRetrieveMetadata = navigateToRetrieveMetadata,
+            navigateToRecentlyRead = navigateToRecentlyRead,
             onOpenWebpage = onOpenWebpage,
             viewEffect = viewEffect
         )

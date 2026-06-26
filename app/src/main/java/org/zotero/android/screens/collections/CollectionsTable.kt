@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import org.zotero.android.architecture.ui.CustomLayoutSize
 import org.zotero.android.screens.collections.rows.fixedCollectionRow
+import org.zotero.android.screens.collections.rows.recentlyReadSidebarRow
 import org.zotero.android.screens.collections.rows.recursiveCollectionItem
 import org.zotero.android.sync.CollectionIdentifier
 
@@ -26,6 +27,9 @@ internal fun CollectionsTable(
             viewState = viewState,
             layoutType = layoutType,
             viewModel = viewModel
+        )
+        recentlyReadSidebarRow(
+            onTapped = { viewModel.onRecentlyReadTapped() }
         )
         recursiveCollectionItem(
             layoutType = layoutType,

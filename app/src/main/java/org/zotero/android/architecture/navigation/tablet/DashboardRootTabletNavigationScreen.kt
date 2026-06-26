@@ -32,6 +32,7 @@ internal fun DashboardRootTabletNavigationScreen(
     toZoteroWebViewScreen: (String) -> Unit,
     onExitApp:() -> Unit,
     navigateToRetrieveMetadata: (params: String) -> Unit,
+    navigateToRecentlyRead: () -> Unit,
     viewEffect: Consumable<DashboardViewEffect>?,
 ) {
 
@@ -53,6 +54,7 @@ internal fun DashboardRootTabletNavigationScreen(
                 collectionDefaultValue = collectionDefaultValue,
                 viewEffect = viewEffect,
                 navigateAndPopAllItemsScreen = navigateAndPopAllItemsScreen,
+                navigateToRecentlyRead = navigateToRecentlyRead,
                 onOpenWebpage = onOpenWebpage,
                 onExitApp = onExitApp,
             )

@@ -25,6 +25,7 @@ internal fun TabletLeftPaneNavigation(
     viewEffect: Consumable<DashboardViewEffect>?,
     onOpenWebpage: (url: String) -> Unit,
     navigateAndPopAllItemsScreen: (String) -> Unit,
+    navigateToRecentlyRead: () -> Unit,
     onExitApp:() -> Unit,
     collectionDefaultValue: String
 ) {
@@ -60,6 +61,7 @@ internal fun TabletLeftPaneNavigation(
                 navController.navigate(CommonScreenDestinations.LIBRARIES_SCREEN)
             },
             navigateToCollectionEdit = navigation::toCollectionEditNavigation,
+            navigateToRecentlyRead = navigateToRecentlyRead,
             isTablet = true
         )
 

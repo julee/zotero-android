@@ -83,6 +83,7 @@ import org.zotero.android.screens.reader.data.NewReaderAnnotation
 import org.zotero.android.screens.reader.data.ReaderAnnotationTool
 import org.zotero.android.screens.reader.data.ReaderAnnotationsFilter
 import org.zotero.android.screens.reader.data.ReaderArgs
+import org.zotero.android.screens.recentlyread.RecentlyReadStorage
 import org.zotero.android.screens.reader.data.ReaderDocumentData
 import org.zotero.android.screens.reader.data.ReaderFileType
 import org.zotero.android.screens.reader.data.ReaderOutline
@@ -146,6 +147,7 @@ class ReaderViewModel @Inject constructor(
     private val annotationBitmapManager: ReaderAnnotationBitmapManager,
     private val annotationBitmapCacheSnapshotEventStream: ReaderAnnotationBitmapCacheSnapshotEventStream,
     private val readerWebCallChainExecutor: ReaderWebCallChainExecutor,
+    private val recentlyReadStorage: RecentlyReadStorage,
 
     stateHandle: SavedStateHandle,
 ) : BaseViewModel2<ReaderViewState, ReaderViewEffect>(ReaderViewState())  {
@@ -439,9 +441,23 @@ class ReaderViewModel @Inject constructor(
         this.key = params.key
         this.parentKey = params.parentKey
         this.library = params.library
+        val fileType = decideFileType()
+        // Record this open so it surfaces (and re-sorts to the top) in Recently Read.
+        // Seed the filename + content type the reader already knows so the row renders
+        // even if the attachment's RItem is briefly unavailable right after the read.
+        recentlyReadStorage.register(
+            libraryId = this.library.identifier,
+            key = this.key,
+            filename = params.uri.lastPathSegment ?: this.key,
+            contentType = when (fileType) {
+                ReaderFileType.PDF -> "application/pdf"
+                ReaderFileType.EPUB -> "application/epub+zip"
+                ReaderFileType.HTML -> "text/html"
+            },
+        )
         updateState {
             copy(
-                fileType = decideFileType()
+                fileType = fileType
             )
         }
     }

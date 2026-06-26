@@ -80,6 +80,8 @@ open class Defaults @Inject constructor(
 
     private val doNotShowAppUpdateBannerBeforeTime = "doNotShowAppUpdateBannerBeforeTime"
 
+    private val recentlyReadEntries = "recentlyReadEntries"
+
     private val sharedPreferences: SharedPreferences by lazy {
         context.getSharedPreferences(
             sharedPrefsFile,
@@ -442,6 +444,14 @@ open class Defaults @Inject constructor(
         sharedPreferences.edit { putString(lastPdfWorkerCommitHash, newValue) }
     }
 
+    fun getRecentlyReadEntries(): String {
+        return sharedPreferences.getString(recentlyReadEntries, "") ?: ""
+    }
+
+    fun setRecentlyReadEntries(value: String) {
+        sharedPreferences.edit { putString(recentlyReadEntries, value) }
+    }
+
     fun getDoNotShowAppUpdateBannerBeforeTime(): Long {
         return sharedPreferences.getLong(doNotShowAppUpdateBannerBeforeTime, 0L)
     }
@@ -603,6 +613,8 @@ open class Defaults @Inject constructor(
         setQuickCopyStyleId("http://www.zotero.org/styles/chicago-notes-bibliography")
         setExportOutputMethod(CitBibExportOutputMethod.copy)
         setExportOutputMode(CitBibExportOutputMode.bibliography)
+
+        setRecentlyReadEntries("")
     }
 
 }

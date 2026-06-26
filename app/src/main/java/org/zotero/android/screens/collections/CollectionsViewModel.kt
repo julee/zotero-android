@@ -377,6 +377,10 @@ internal class CollectionsViewModel @Inject constructor(
         super.onCleared()
     }
 
+    fun onRecentlyReadTapped() {
+        triggerEffect(CollectionsViewEffect.NavigateToRecentlyReadScreen)
+    }
+
     fun onAdd() {
         ScreenArguments.collectionEditArgs = CollectionEditArgs(
             library = this.library,
@@ -682,4 +686,5 @@ internal sealed class CollectionsViewEffect : ViewEffect {
     data class NavigateToAllItemsScreen(val screenArgs: String) : CollectionsViewEffect()
     data class NavigateToLibrariesScreen(val screenArgs: String) : CollectionsViewEffect()
     object ShowCollectionEditEffect : CollectionsViewEffect()
+    object NavigateToRecentlyReadScreen : CollectionsViewEffect()
 }

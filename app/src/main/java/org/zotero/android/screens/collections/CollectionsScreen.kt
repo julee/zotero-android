@@ -30,6 +30,7 @@ internal fun CollectionsScreen(
     navigateToAllItems: (String) -> Unit,
     navigateToLibraries: (String) -> Unit,
     navigateToCollectionEdit: () -> Unit,
+    navigateToRecentlyRead: () -> Unit,
     viewModel: CollectionsViewModel = hiltViewModel(),
 ) {
     AppThemeM3 {
@@ -60,6 +61,10 @@ internal fun CollectionsScreen(
 
                 CollectionsViewEffect.ShowCollectionEditEffect -> {
                     navigateToCollectionEdit()
+                }
+
+                CollectionsViewEffect.NavigateToRecentlyReadScreen -> {
+                    navigateToRecentlyRead()
                 }
 
                 is CollectionsViewEffect.NavigateToLibrariesScreen -> {

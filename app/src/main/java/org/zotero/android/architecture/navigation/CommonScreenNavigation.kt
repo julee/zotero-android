@@ -246,6 +246,7 @@ fun NavGraphBuilder.collectionsScreen(
     navigateToAllItems: (String) -> Unit,
     navigateToCollectionEdit: () -> Unit,
     navigateToLibraries: (String) -> Unit,
+    navigateToRecentlyRead: () -> Unit,
     isTablet: Boolean,
 ) {
     composable(
@@ -290,6 +291,7 @@ fun NavGraphBuilder.collectionsScreen(
             navigateToAllItems = navigateToAllItems,
             navigateToLibraries = navigateToLibraries,
             navigateToCollectionEdit = navigateToCollectionEdit,
+            navigateToRecentlyRead = navigateToRecentlyRead,
         )
     }
 }
