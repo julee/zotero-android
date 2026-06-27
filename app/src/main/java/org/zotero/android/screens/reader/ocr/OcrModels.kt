@@ -1,6 +1,7 @@
 package org.zotero.android.screens.reader.ocr
 
 import android.graphics.Bitmap
+import java.io.Closeable
 
 /**
  * On-device OCR for scanned / image-only PDF pages.
@@ -13,9 +14,13 @@ import android.graphics.Bitmap
  *  - block order is preserved (keeps columns separate in multi-column layouts),
  *  - each line carries its own bounding box (used to give every char in the line
  *    a consistent vertical extent, which keeps the reader's line splitting stable).
+ *
+ * [Closeable] so native resources (e.g. an ML Kit recognizer) are released when
+ * the document is closed.
  */
-interface OcrProvider {
+interface OcrProvider : Closeable {
     suspend fun recognize(bitmap: Bitmap): List<OcrBlock>
+    override fun close() {}
 }
 
 /** A character box in bitmap pixel space. */
@@ -43,10 +48,13 @@ data class OcrBlock(
 
 /**
  * A single recognized character expressed in PDF user space (origin bottom-left,
- * y increasing upward, with rect = [x1, y1, x2, y2], x1 < x2, y1 < y2). This is the
- * exact shape the reader's worker (module.js) consumes to synthesize a text layer.
+ * y increasing upward, with rect = [x1, y1, x2, y2], x1 < x2, y1 < y2). [rotation]
+ * is the page's /Rotate (0/90/180/270); the worker uses it to derive the correct
+ * per-rotation baseline/height. This is the exact shape the reader's worker
+ * (module.js) consumes to synthesize a text layer.
  */
 data class OcrChar(
     val c: String,
     val rect: List<Float>,
+    val rotation: Int = 0,
 )

@@ -269,9 +269,10 @@ class ReaderWebCallChainExecutor @Inject constructor(
                             val requestId = params["requestId"]?.asLong ?: return@launch
                             val viewBox = params["viewBox"]?.takeIf { it.isJsonArray }
                                 ?.asJsonArray?.map { it.asDouble } ?: emptyList()
+                            val rotation = params["rotation"]?.takeIf { !it.isJsonNull }?.asInt ?: 0
                             observable.emitAsync(
                                 Result.Success(
-                                    ReaderWebData.requestOcr(pageIndex, viewBox, requestId)
+                                    ReaderWebData.requestOcr(pageIndex, viewBox, rotation, requestId)
                                 )
                             )
                         }

@@ -34,7 +34,9 @@ object PdfPageRenderer {
             val ph = page.height
             if (pw <= 0 || ph <= 0) return null
 
-            val scale = (targetLongEdgePx.toFloat() / maxOf(pw, ph)).coerceIn(1.5f, 4f)
+            // Scale so the long edge is ~targetLongEdgePx; never upsample beyond 4x,
+            // and don't force upsampling of already-large pages (lower bound 1x).
+            val scale = (targetLongEdgePx.toFloat() / maxOf(pw, ph)).coerceIn(1f, 4f)
             val bw = (pw * scale).toInt().coerceAtLeast(1)
             val bh = (ph * scale).toInt().coerceAtLeast(1)
 

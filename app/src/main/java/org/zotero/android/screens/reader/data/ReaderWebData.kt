@@ -24,6 +24,7 @@ sealed interface ReaderWebData {
     data class requestOcr(
         val pageIndex: Int,
         val viewBox: List<Double>,
+        val rotation: Int,
         val requestId: Long,
     ) : ReaderWebData
 }

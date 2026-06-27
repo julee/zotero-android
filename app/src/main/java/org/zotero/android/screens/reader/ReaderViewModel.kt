@@ -1584,6 +1584,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     private fun deinitialiseReader() {
+        ocrManager.close()
         this.readerDirectory.deleteRecursively()
     }
 
@@ -1606,7 +1607,7 @@ class ReaderViewModel @Inject constructor(
         val file = this.documentFile
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
             val chars = try {
-                ocrManager.ocrPage(file, request.pageIndex, request.viewBox)
+                ocrManager.ocrPage(file, request.pageIndex, request.viewBox, request.rotation)
             } catch (e: Exception) {
                 Timber.e(e, "ReaderViewModel: OCR request failed for page ${request.pageIndex}")
                 emptyList()

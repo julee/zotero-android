@@ -24,6 +24,13 @@ class MLKitOcrProvider : OcrProvider {
         TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
     }
 
+    override fun close() {
+        try {
+            recognizer.close()
+        } catch (_: Exception) {
+        }
+    }
+
     override suspend fun recognize(bitmap: Bitmap): List<OcrBlock> {
         val image = InputImage.fromBitmap(bitmap, 0)
         val text = suspendCancellableCoroutine { cont ->
