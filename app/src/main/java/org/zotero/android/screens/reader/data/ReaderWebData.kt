@@ -21,4 +21,9 @@ sealed interface ReaderWebData {
     data class onRenderThumbnail(val thumbnailJsonObject: JsonObject) : ReaderWebData
     data class onSetPageLabels(val pageLabelsJsonArray: JsonArray) : ReaderWebData
     data class onSaveCropConfig(val config: JsonObject) : ReaderWebData
+    data class requestOcr(
+        val pageIndex: Int,
+        val viewBox: List<Double>,
+        val requestId: Long,
+    ) : ReaderWebData
 }

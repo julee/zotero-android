@@ -263,6 +263,19 @@ class ReaderWebCallChainExecutor @Inject constructor(
                             }
                         }
 
+                        "onRequestOcr" -> {
+                            val params = data["params"]?.asJsonObject ?: return@launch
+                            val pageIndex = params["pageIndex"]?.asInt ?: return@launch
+                            val requestId = params["requestId"]?.asLong ?: return@launch
+                            val viewBox = params["viewBox"]?.takeIf { it.isJsonArray }
+                                ?.asJsonArray?.map { it.asDouble } ?: emptyList()
+                            observable.emitAsync(
+                                Result.Success(
+                                    ReaderWebData.requestOcr(pageIndex, viewBox, requestId)
+                                )
+                            )
+                        }
+
                     }
                 }
 
@@ -330,6 +343,12 @@ class ReaderWebCallChainExecutor @Inject constructor(
                 cont.resume(Unit)
             }
         }
+    }
+
+    fun provideOcr(requestId: Long, chars: List<org.zotero.android.screens.reader.ocr.OcrChar>) {
+        val payload = mapOf("requestId" to requestId, "chars" to chars)
+        val encoded = encodeAsJSONForJavascript(gson = this.gson, data = payload)
+        readerWebViewHandler.evaluateJavascript("javascript:window.provideOcr({ data: '${encoded}' });") {}
     }
 
     suspend fun clearTool() {
@@ -478,6 +497,11 @@ class ReaderWebCallChainExecutor @Inject constructor(
     // TEMP debug: trigger a programmatic text selection in the reader.
     fun debugSelectText() {
         readerWebViewHandler.evaluateJavascript("window._view.__debugSelectFirstText();") {}
+    }
+
+    // TEMP debug: force the OCR pipeline on the current page (scanned-PDF flow).
+    fun debugForceOcr() {
+        readerWebViewHandler.evaluateJavascript("window._view.__debugForceOcr();") {}
     }
 
     // TEMP debug: turn the crop reading mode on/off to isolate interaction issues.

@@ -157,6 +157,10 @@ class ReaderViewModel @Inject constructor(
     private lateinit var readerDirectory: File
     private lateinit var documentFile: File
     private lateinit var readerFile: File
+
+    // On-device OCR for scanned/image-only PDF pages, enabling text selection /
+    // highlight / underline where the PDF has no native text layer.
+    private val ocrManager = org.zotero.android.screens.reader.ocr.OcrManager()
     private var userId: Long = 0L
     private var username: String = ""
     private var selectedTextParams: JsonObject? = null
@@ -1511,6 +1515,16 @@ class ReaderViewModel @Inject constructor(
             override fun onReceive(c: Context?, intent: android.content.Intent?) {
                 when (intent?.action) {
                     "org.zotero.debug.SELECT" -> readerWebCallChainExecutor.debugSelectText()
+                    "org.zotero.debug.OCRFORCE" -> readerWebCallChainExecutor.debugForceOcr()
+                    "org.zotero.debug.OCRFLOW" -> {
+                        readerWebCallChainExecutor.debugForceOcr()
+                        viewModelScope.launch {
+                            kotlinx.coroutines.delay(4000)
+                            readerWebCallChainExecutor.debugSelectText()
+                            kotlinx.coroutines.delay(800)
+                            onHighlight()
+                        }
+                    }
                     "org.zotero.debug.HIGHLIGHT" -> onHighlight()
                     "org.zotero.debug.UNDERLINE" -> onUnderline()
                     "org.zotero.debug.HLFLOW" -> {
@@ -1538,6 +1552,8 @@ class ReaderViewModel @Inject constructor(
         }
         val filter = android.content.IntentFilter().apply {
             addAction("org.zotero.debug.SELECT")
+            addAction("org.zotero.debug.OCRFORCE")
+            addAction("org.zotero.debug.OCRFLOW")
             addAction("org.zotero.debug.HIGHLIGHT")
             addAction("org.zotero.debug.UNDERLINE")
             addAction("org.zotero.debug.HLFLOW")
@@ -1577,6 +1593,26 @@ class ReaderViewModel @Inject constructor(
                 process(result)
             }
             .launchIn(viewModelScope)
+    }
+
+    // Recognize a scanned page on demand and feed the characters back to the reader,
+    // which builds a selectable text layer from them. Heavy work runs off the main
+    // thread; provideOcr marshals back to the WebView's UI thread internally.
+    private fun handleOcrRequest(request: ReaderWebData.requestOcr) {
+        if (!this::documentFile.isInitialized) {
+            readerWebCallChainExecutor.provideOcr(request.requestId, emptyList())
+            return
+        }
+        val file = this.documentFile
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            val chars = try {
+                ocrManager.ocrPage(file, request.pageIndex, request.viewBox)
+            } catch (e: Exception) {
+                Timber.e(e, "ReaderViewModel: OCR request failed for page ${request.pageIndex}")
+                emptyList()
+            }
+            readerWebCallChainExecutor.provideOcr(request.requestId, chars)
+        }
     }
 
     private suspend fun process(result: Result<ReaderWebData>) {
@@ -1634,6 +1670,9 @@ class ReaderViewModel @Inject constructor(
             }
             is ReaderWebData.onSaveCropConfig -> {
                 defaults.setReaderCropConfig(this.key, successValue.config.toString())
+            }
+            is ReaderWebData.requestOcr -> {
+                handleOcrRequest(successValue)
             }
 
             else -> {

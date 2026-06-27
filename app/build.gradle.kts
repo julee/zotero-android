@@ -178,6 +178,10 @@ dependencies {
     implementation(Libs.keyboardVisibility)
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 
+    //ML Kit on-device text recognition (OCR for scanned PDFs). Bundled models run
+    //without Google Play Services. The Chinese recognizer also covers Latin script.
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+
 }
 
 kapt {
