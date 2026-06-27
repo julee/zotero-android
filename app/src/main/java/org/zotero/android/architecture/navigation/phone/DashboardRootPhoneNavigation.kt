@@ -3,7 +3,11 @@ package org.zotero.android.architecture.navigation.phone
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -80,6 +84,18 @@ internal fun DashboardRootPhoneNavigation(
         ZoteroNavigation(navController, dispatcher)
     }
 
+    // Land on the "Recently Read" list by default on app launch. We push it on top of
+    // the All Items root (instead of making it the nav-graph start) so a single back
+    // press returns to the library — the Recently Read screen itself has no way to
+    // reach the collections. rememberSaveable guards against re-navigating after a
+    // configuration change (e.g. folding/unfolding the device).
+    var didOpenRecentlyReadOnLaunch by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(key1 = Unit) {
+        if (!didOpenRecentlyReadOnLaunch) {
+            didOpenRecentlyReadOnLaunch = true
+            navigation.toRecentlyRead()
+        }
+    }
 
     LaunchedEffect(key1 = viewEffect) {
         val consumedEffect = viewEffect?.consume()
