@@ -3,6 +3,7 @@ package org.zotero.android.screens.reader
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,12 +26,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import org.zotero.android.screens.reader.data.ReaderFileType
 import org.zotero.android.screens.reader.toolbar.ReaderAnnotationCreationToolbar
 import org.zotero.android.screens.reader.web.actionmenu.ReaderActionMenuPopup
+import org.zotero.android.uicomponents.Drawables
 import org.zotero.android.uicomponents.theme.CustomTheme
 
 
@@ -112,6 +123,34 @@ internal fun ReaderBox(
                     shouldShowSnapTargetAreas = shouldShowSnapTargetAreas
                 )
             }
+            // While an annotation tool is active, tap-to-turn is suppressed (taps draw),
+            // so offer semi-transparent page-turn buttons at the screen edges. Only shown
+            // for PDFs with a tool actually selected (not just the toolbar being open).
+            if (viewState.fileType == ReaderFileType.PDF && viewState.activeTool != null) {
+                // Sit just BELOW the annotation toolbar, hard against the edges, so the
+                // buttons neither overlap the toolbar nor float over the middle of the
+                // page. With a tool active (so the color circle shows) the toolbar's
+                // content bottom sits ~480dp under the status bar inset (= 96dp top inset
+                // + content); place the buttons ~12dp below that. statusBarsPadding()
+                // matches the toolbar's own top inset so they track it as bars show/hide.
+                val pageTurnTopOffset = 492.dp
+                PageTurnButton(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(start = 8.dp, top = pageTurnTopOffset),
+                    rotationDegrees = 180f,
+                    onClick = viewModel::onTurnToPreviousPage,
+                )
+                PageTurnButton(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(end = 8.dp, top = pageTurnTopOffset),
+                    rotationDegrees = 0f,
+                    onClick = viewModel::onTurnToNextPage,
+                )
+            }
         }
 
         if (viewState.fileType == ReaderFileType.EPUB) {
@@ -135,6 +174,31 @@ internal fun ReaderBox(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PageTurnButton(
+    modifier: Modifier,
+    rotationDegrees: Float,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.28f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(id = Drawables.chevron_right_24px),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier
+                .size(30.dp)
+                .rotate(rotationDegrees),
+        )
     }
 }
 

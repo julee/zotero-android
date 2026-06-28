@@ -263,6 +263,14 @@ class ReaderWebCallChainExecutor @Inject constructor(
                             }
                         }
 
+                        "onCropEditClosed" -> {
+                            observable.emitAsync(
+                                Result.Success(
+                                    ReaderWebData.onCropEditClosed
+                                )
+                            )
+                        }
+
                         "onRequestOcr" -> {
                             val params = data["params"]?.asJsonObject ?: return@launch
                             val pageIndex = params["pageIndex"]?.asInt ?: return@launch
@@ -493,6 +501,14 @@ class ReaderWebCallChainExecutor @Inject constructor(
 
     fun setCropConfig(configJson: String) {
         readerWebViewHandler.evaluateJavascript("window._view.setCropConfig($configJson);") {}
+    }
+
+    fun navigateToNextPage() {
+        readerWebViewHandler.evaluateJavascript("window._view.navigateToNextPage();") {}
+    }
+
+    fun navigateToPreviousPage() {
+        readerWebViewHandler.evaluateJavascript("window._view.navigateToPreviousPage();") {}
     }
 
     // TEMP debug: trigger a programmatic text selection in the reader.

@@ -10,13 +10,13 @@ import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
@@ -169,6 +169,8 @@ internal fun BoxScope.ReaderAnnotationCreationToolbar(
         )
     }
 
+    // Wrap the content height (Column, not a fixed-height LazyColumn) so the toolbar is
+    // exactly as tall as its buttons — no trailing empty strip below the last button.
     var columnModifier = Modifier
         .offset {
             IntOffset(
@@ -183,9 +185,8 @@ internal fun BoxScope.ReaderAnnotationCreationToolbar(
             orientation = Orientation.Horizontal,
             interactionSource = draggableInteractionSource
         )
-        .height(520.dp)
 
-    LazyColumn(
+    Column(
         modifier = columnModifier
             // Push the toolbar down below the status bar and the text-selection floating
             // toolbar so its top tools aren't covered by them.
@@ -197,79 +198,79 @@ internal fun BoxScope.ReaderAnnotationCreationToolbar(
             )
             .clip(roundCornerShape)
     ) {
-        item {
-            Spacer(modifier = Modifier.height(4.dp))
-            val toolsList =
+        Spacer(modifier = Modifier.height(4.dp))
+        val toolsList =
             if (viewState.fileType == ReaderFileType.PDF) {
                 pdfReaderToolsList
             } else {
                 htmlEpubReaderToolsList
             }
 
-            toolsList.forEach { tool ->
-                if (!tool.isHidden) {
-                    TooltipBox(
-                        positionProvider = rememberTooltipPositionProvider(
-                            TooltipAnchorPosition.Above,
-                            4.dp
-                        ),
-                        tooltip = {
-                            PlainTooltip() {
-                                Text(
-                                    text = safeStringResource(tool.title)
-                                )
-                            }
-                        },
-                        state = rememberTooltipState()
-                    ) {
-                        ReaderAnnotationCreationToggleButton(
-                            activeAnnotationTool = viewState.activeTool,
-                            pdfReaderTool = tool,
-                            toggleButton = viewModel::toggle
-                        )
-
-                    }
-
-                }
-            }
-            val activeAnnotationTool = viewState.activeTool
-            if (activeAnnotationTool != null) {
-                val color = viewState.toolColors[activeAnnotationTool]
-                if (color != null) {
-                    ReaderFilterCircle(hex = color, onClick = viewModel::showToolOptions)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            TooltipBox(
-                positionProvider = rememberTooltipPositionProvider(
-                    TooltipAnchorPosition.Above,
-                    4.dp
-                ),
-                tooltip = {
-                    PlainTooltip() {
-                        Text(
-                            safeStringResource(
-                                Strings.cancel
+        toolsList.forEach { tool ->
+            if (!tool.isHidden) {
+                TooltipBox(
+                    positionProvider = rememberTooltipPositionProvider(
+                        TooltipAnchorPosition.Above,
+                        4.dp
+                    ),
+                    tooltip = {
+                        PlainTooltip() {
+                            Text(
+                                text = safeStringResource(tool.title)
                             )
-                        )
-                    }
-                },
-                state = rememberTooltipState()
-            ) {
-                ReaderAnnotationCreationButton(
-                    isEnabled = true,
-                    iconInt = Drawables.cancel_24px,
-                    onButtonClick = viewModel::toggleToolbarButton
-                )
+                        }
+                    },
+                    state = rememberTooltipState()
+                ) {
+                    ReaderAnnotationCreationToggleButton(
+                        activeAnnotationTool = viewState.activeTool,
+                        pdfReaderTool = tool,
+                        toggleButton = viewModel::toggle
+                    )
+
+                }
 
             }
+        }
+        val activeAnnotationTool = viewState.activeTool
+        if (activeAnnotationTool != null) {
+            val color = viewState.toolColors[activeAnnotationTool]
+            if (color != null) {
+                ReaderFilterCircle(hex = color, onClick = viewModel::showToolOptions)
+            }
+        }
 
+        // Small separation between the tools and the close/drag actions (was 48dp,
+        // which left a large blank gap in the middle of the toolbar).
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TooltipBox(
+            positionProvider = rememberTooltipPositionProvider(
+                TooltipAnchorPosition.Above,
+                4.dp
+            ),
+            tooltip = {
+                PlainTooltip() {
+                    Text(
+                        safeStringResource(
+                            Strings.cancel
+                        )
+                    )
+                }
+            },
+            state = rememberTooltipState()
+        ) {
             ReaderAnnotationCreationButton(
                 isEnabled = true,
-                iconInt = Drawables.drag_handle,
+                iconInt = Drawables.cancel_24px,
+                onButtonClick = viewModel::toggleToolbarButton
             )
+
         }
+
+        ReaderAnnotationCreationButton(
+            isEnabled = true,
+            iconInt = Drawables.drag_handle,
+        )
     }
 }

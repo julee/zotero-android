@@ -22,6 +22,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -185,6 +188,24 @@ internal fun ReaderScreen(
             }
         }
 
+        // Auto-hide the top bar ~5s after it becomes visible so reading content gets
+        // the whole screen. Re-keys (and so restarts the timer) on every relevant state
+        // change; tapping the screen re-shows the bar, which restarts this effect.
+        LaunchedEffect(
+            viewState.isTopBarVisible,
+            viewState.showPdfSearch,
+            viewState.showSideBar,
+            viewState.topBarAutoHideRestartKey,
+        ) {
+            if (viewState.isTopBarVisible
+                && !viewState.showPdfSearch
+                && !viewState.showSideBar
+            ) {
+                kotlinx.coroutines.delay(5000)
+                viewModel.autoHideTopBarIfIdle()
+            }
+        }
+
         val readerSearchViewModel: ReaderSearchViewModel = hiltViewModel()
         val readerSearchViewState by readerSearchViewModel.viewStates.observeAsState(
             ReaderSearchViewState()
@@ -206,7 +227,20 @@ internal fun ReaderScreen(
             topBar = {
                 AnimatedContent(
                     targetState = viewState.isTopBarVisible,
-                    label = ""
+                    label = "",
+                    // Restart the auto-hide countdown on any touch within the top bar so
+                    // it doesn't collapse mid-interaction. Observes presses on the Initial
+                    // pass without consuming them, so the actual buttons still receive taps.
+                    modifier = Modifier.pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.type == PointerEventType.Press) {
+                                    viewModel.onTopBarInteracted()
+                                }
+                            }
+                        }
+                    },
                 ) { isTopBarVisible ->
                     if (isTopBarVisible) {
                         if (viewState.showPdfSearch && !layoutType.isTablet()) {

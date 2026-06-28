@@ -416,6 +416,13 @@ class ReaderViewModel @Inject constructor(
             return
         }
         readerWebCallChainExecutor.enterCropEdit()
+        // The native top bar floats over the WebView (full-bleed); on a near-square
+        // foldable it covers the crop overlay's top drag handle. Hide it (and the
+        // sidebar) for the duration of crop editing; restored on onCropEditClosed.
+        topBarAutoHideJob?.cancel()
+        setTopBarVisibility(false)
+        previousSidebarVisibilityState = viewState.showSideBar
+        updateState { copy(showSideBar = false) }
     }
 
     fun onCropModeSelected(manual: Boolean) {
@@ -1672,6 +1679,11 @@ class ReaderViewModel @Inject constructor(
             is ReaderWebData.onSaveCropConfig -> {
                 defaults.setReaderCropConfig(this.key, successValue.config.toString())
             }
+            ReaderWebData.onCropEditClosed -> {
+                // Crop editing finished (saved or cancelled): bring the top bar back.
+                setTopBarVisibility(true)
+                updateState { copy(showSideBar = previousSidebarVisibilityState) }
+            }
             is ReaderWebData.requestOcr -> {
                 handleOcrRequest(successValue)
             }
@@ -2404,8 +2416,10 @@ class ReaderViewModel @Inject constructor(
     }
 
     private var previousSidebarVisibilityState = false
+    private var topBarAutoHideJob: Job? = null
 
     private fun decideTopBarAndBottomBarVisibility() = viewModelScope.launch {
+        topBarAutoHideJob?.cancel()
         val isTopBarCurrentlyVisible = viewState.isTopBarVisible
         val topBarNewVisibilityState = !isTopBarCurrentlyVisible
         setTopBarVisibility(topBarNewVisibilityState)
@@ -2416,6 +2430,46 @@ class ReaderViewModel @Inject constructor(
         } else {
             updateState { copy(showSideBar = this@ReaderViewModel.previousSidebarVisibilityState) }
         }
+    }
+
+    // Auto-hide the top bar a few seconds after it appears, to give the content the
+    // whole screen. Driven by a LaunchedEffect in ReaderScreen keyed on the relevant
+    // states; we re-check here because the state may have changed during the delay.
+    // Skip while searching or while the sidebar is open — the sidebar is for reading
+    // content, so it must not auto-hide (and we leave it untouched here). The annotation
+    // creation toolbar is intentionally NOT a reason to stay: the top bar still collapses
+    // while annotating, leaving the creation toolbar (and page-turn buttons) on screen.
+    fun autoHideTopBarIfIdle() {
+        if (!viewState.isTopBarVisible) {
+            return
+        }
+        if (viewState.showPdfSearch || viewState.showSideBar) {
+            return
+        }
+        setTopBarVisibility(false)
+        // Sidebar is already closed here; keep the restore state consistent so a later
+        // tap-to-show doesn't reopen it from a stale value.
+        this.previousSidebarVisibilityState = viewState.showSideBar
+    }
+
+    // Any interaction with the top bar restarts its auto-hide countdown, so it won't
+    // disappear from under the user mid-tap. Bumps a key the ReaderScreen LaunchedEffect
+    // observes; the effect cancels the in-flight 5s delay and starts a fresh one.
+    fun onTopBarInteracted() {
+        if (!viewState.isTopBarVisible) {
+            return
+        }
+        updateState { copy(topBarAutoHideRestartKey = topBarAutoHideRestartKey + 1) }
+    }
+
+    // Page turning from the floating buttons shown while an annotation tool is active
+    // (tap-to-turn is suppressed in that mode, so the buttons are the only way to flip).
+    fun onTurnToNextPage() {
+        readerWebCallChainExecutor.navigateToNextPage()
+    }
+
+    fun onTurnToPreviousPage() {
+        readerWebCallChainExecutor.navigateToPreviousPage()
     }
 
     fun navigateToReaderSettings() {
@@ -2597,6 +2651,7 @@ data class ReaderViewState(
     val annotationPopoverRect: RectF? = null,
     var outlineSearch: String = "",
     val isTopBarVisible: Boolean = true,
+    val topBarAutoHideRestartKey: Int = 0,
     val showPdfSearch: Boolean = false,
     val showSideBar: Boolean = false,
     val showCreationToolbar: Boolean = false,
